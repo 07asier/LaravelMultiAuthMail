@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Auth;
 
 use App\Models\User;
 use App\Http\Controllers\Controller;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Foundation\Auth\RegistersUsers;
 
@@ -58,15 +59,37 @@ class RegisterController extends Controller
      * Create a new user instance after a valid registration.
      *
      * @param  array  $data
-     * @return \app\User
+     * @return \App\User
      */
     protected function create(array $data)
     {
-        //prueba
-        return User::create([
+        $data[''] = str_random(25);
+        $user = User::create([
             'name' => $data['name'],
             'email' => $data['email'],
             'password' => bcrypt($data['password']),
+            'confirmation_code'=> $data['confirmation_code']
+
         ]);
+        //envio de codigo confirmacion
+        Mail::send('emails.confirmation_code', $data ,function($message) use ($data){
+            $message->to($data['email'],$data['name'])->subject('Por favor confirme su correo');
+        });
+
+        return $user;
+    }
+
+    public function verify($code){
+
+        $user = User::where('confirmation_code', $code)->first();
+        if(! $user){
+            return redirect('/');
+        }
+
+        $user->confirmed = true;
+        $user->confirmation_code = null;
+        $user->save();
+
+        return redirect('/login')->with('notification','Correo confirmado');
     }
 }
